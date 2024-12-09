@@ -236,6 +236,39 @@ class AlphabetRatioFilter(FilterABC):
     def accept(self, score):
         return all(ratio >= threshold for ratio, threshold in zip(score, self.threshold))
 
+class AlphabetRuKkRatioFilter(FilterABC):
+    """Proportion of ru-kk alphabetic characters in the segment"""
+
+    score_direction = CLEAN_HIGH
+    accept_threshold = 0
+    reject_threshold = 1 + 10**-6
+
+    def __init__(self, threshold=0.75, exclude_whitespace=False, **kwargs):
+        self.threshold = check_args_compability(threshold, required_types=[(float, int)], names=['threshold'])
+        self.exclude_whitespace = exclude_whitespace
+        self.re_whitespace = regex.compile(r'\s')
+        self.re_not_alphas = regex.compile(r'[^A-Za-zА-Яа-яёқәһіңғұөӘҒӨҢҚҰҮҺІ1234567890]')
+        super().__init__(**kwargs)
+
+    def score(self, pairs):
+        for pair in pairs:
+            scores = []
+            for segment in pair:
+                if self.exclude_whitespace:
+                    segment = self.re_whitespace.sub('', segment)
+                
+                alphas = self.re_not_alphas.sub('', segment)
+                if segment:
+                    score = len(alphas) / len(segment)
+                    scaling_factor = 1 / len(segment)**(1/10)
+                    adjusted_score = score * scaling_factor
+                    scores.append(adjusted_score)
+                else:
+                    scores.append(1.0)
+            yield scores
+
+    def accept(self, score):
+        return all(ratio >= threshold for ratio, threshold in zip(score, self.threshold))
 
 class CharacterScoreFilter(FilterABC):
     """Proportion of alphabetic characters that are in the given script
